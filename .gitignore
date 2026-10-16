@@ -47,3 +47,14 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Python ML service
+ml-service/.venv/
+ml-service/__pycache__/
+ml-service/**/__pycache__/
+ml-service/.pytest_cache/
+ml-service/.ruff_cache/
+ml-service/data/raw/*
+ml-service/data/processed/*
+ml-service/training/reports/*
+.pythonlibs/

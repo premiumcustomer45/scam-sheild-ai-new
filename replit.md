@@ -1,15 +1,21 @@
-# [Project name]
+# ScamShield AI
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+An educational phishing and scam assessment app that analyzes URL strings and message text without visiting submitted links.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/scamshield-ai run dev` — run the React + Vite app
+- `pnpm --filter @workspace/api-server run dev` — run the Express API
+- `cd ml-service && uv sync --all-groups` — install the FastAPI/model dependencies
+- `cd ml-service && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000` — run the private ML API
+- `cd ml-service && uv run python training/download_datasets.py` — download official UCI training data
+- `cd ml-service && uv run python training/train_url_model.py && uv run python training/train_text_model.py` — train both models
+- `cd ml-service && uv run pytest` — run ML tests
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required env: `DATABASE_URL`, `SESSION_SECRET`; optional `FRONTEND_URL`, `ML_SERVICE_URL`
 
 ## Stack
 
@@ -22,23 +28,32 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/scamshield-ai` — React + Vite product UI
+- `artifacts/api-server` — Express API, auth, scans, analytics, feedback
+- `ml-service` — FastAPI inference, training scripts, tests, model artifacts
+- `lib/api-spec/openapi.yaml` — source of truth for application API contracts
+- `lib/db/src/schema/` — PostgreSQL persistence schema
+- `docs/` — architecture, API, datasets, evaluation, security, deployment, college notes
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- PostgreSQL is used for scan/account persistence because no MongoDB URI was supplied; do not claim MongoDB is connected.
+- URL scanning is lexical only: never fetch, resolve, or render a submitted URL.
+- The text model is trained on UCI spam-versus-ham data; it is not a phishing-labeled model.
+- Model scores are not calibrated probabilities; `model_probability` remains null.
+- Guest scans are not persisted; history and analytics are scoped to the authenticated user.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Users can assess URLs and messages, review evidence and limitations, and sign in to keep their own scan history, feedback, and dashboard analytics.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+Do not store raw message bodies or URL query strings in scan history.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+The ML service refuses to start unless both trained model files are present under `ml-service/models/`; run both training scripts first.
 
 ## Pointers
 

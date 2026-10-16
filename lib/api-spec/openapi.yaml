@@ -3,14 +3,48 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: ScamShield AI account, scanning, history, feedback, and dashboard API
 servers:
   - url: /api
     description: Base API path
 tags:
+  - name: auth
+    description: Account and session operations
+  - name: scans
+    description: URL and message scanning
+  - name: dashboard
+    description: Stored scan analytics
+  - name: feedback
+    description: User feedback on scan results
   - name: health
-    description: Health operations
+    description: Service health
 paths:
+  /health:
+    get:
+      operationId: apiHealth
+      tags: [health]
+      summary: Check API process health
+      responses:
+        "200":
+          description: API process is responding
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /ready:
+    get:
+      operationId: apiReadiness
+      tags: [health]
+      summary: Check API, database, and ML readiness
+      responses:
+        "200":
+          description: Required dependencies are ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+        "503":
+          $ref: "#/components/responses/ApiError"
   /healthz:
     get:
       operationId: healthCheck
@@ -24,7 +58,251 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Create an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Start an account session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          $ref: "#/components/responses/ApiError"
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: End the current account session
+      responses:
+        "200":
+          description: Signed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the current account session
+      responses:
+        "200":
+          description: Current user, or null when signed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUserResponse"
+  /scans/url:
+    post:
+      operationId: createUrlScan
+      tags: [scans]
+      summary: Assess a URL without visiting it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UrlScanInput"
+      responses:
+        "201":
+          description: URL assessment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scan"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "503":
+          $ref: "#/components/responses/ApiError"
+  /scans/text:
+    post:
+      operationId: createTextScan
+      tags: [scans]
+      summary: Assess a message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TextScanInput"
+      responses:
+        "201":
+          description: Message assessment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scan"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "503":
+          $ref: "#/components/responses/ApiError"
+  /scans/combined:
+    post:
+      operationId: createCombinedScan
+      tags: [scans]
+      summary: Assess a message and any embedded URLs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CombinedScanInput"
+      responses:
+        "201":
+          description: Combined message and URL assessment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scan"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "503":
+          $ref: "#/components/responses/ApiError"
+  /scans:
+    get:
+      operationId: listScans
+      tags: [scans]
+      summary: List scans belonging to the current user
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: Paginated scan history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanPage"
+  /scans/{id}:
+    get:
+      operationId: getScan
+      tags: [scans]
+      summary: Get a scan owned by the current user
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Scan record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scan"
+        "404":
+          $ref: "#/components/responses/ApiError"
+    delete:
+      operationId: deleteScan
+      tags: [scans]
+      summary: Delete a scan owned by the current user
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Scan deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get scan totals and daily trend for the current user
+      parameters:
+        - in: query
+          name: days
+          schema:
+            type: integer
+            minimum: 7
+            maximum: 90
+            default: 30
+      responses:
+        "200":
+          description: Scan analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+  /feedback:
+    post:
+      operationId: createFeedback
+      tags: [feedback]
+      summary: Submit feedback for an owned scan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackInput"
+      responses:
+        "201":
+          description: Feedback saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "404":
+          $ref: "#/components/responses/ApiError"
 components:
+  responses:
+    ApiError:
+      description: Request failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +311,233 @@ components:
           type: string
       required:
         - status
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required: [success]
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, email, createdAt]
+    RegisterInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 10
+          maxLength: 128
+      required: [name, email, password]
+    LoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required: [email, password]
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+      required: [user]
+    CurrentUserResponse:
+      type: object
+      properties:
+        user:
+          anyOf:
+            - $ref: "#/components/schemas/User"
+            - type: "null"
+      required: [user]
+    UrlScanInput:
+      type: object
+      properties:
+        url:
+          type: string
+          minLength: 1
+          maxLength: 2048
+      required: [url]
+    TextScanInput:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 20000
+      required: [text]
+    CombinedScanInput:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 20000
+      required: [text]
+    Verdict:
+      type: string
+      enum: [lower-risk, suspicious, high-risk, uncertain]
+    InputType:
+      type: string
+      enum: [url, text, combined]
+    Indicator:
+      type: object
+      properties:
+        code:
+          type: string
+        title:
+          type: string
+        detail:
+          type: string
+        severity:
+          type: string
+          enum: [info, warning, high]
+      required: [code, title, detail, severity]
+    UrlAssessment:
+      type: object
+      properties:
+        url:
+          type: string
+        verdict:
+          $ref: "#/components/schemas/Verdict"
+        riskScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        indicators:
+          type: array
+          items:
+            $ref: "#/components/schemas/Indicator"
+      required: [url, verdict, riskScore, indicators]
+    Scan:
+      type: object
+      properties:
+        id:
+          type: string
+        inputType:
+          $ref: "#/components/schemas/InputType"
+        verdict:
+          $ref: "#/components/schemas/Verdict"
+        riskScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        indicators:
+          type: array
+          items:
+            $ref: "#/components/schemas/Indicator"
+        recommendations:
+          type: array
+          items:
+            type: string
+        urls:
+          type: array
+          items:
+            $ref: "#/components/schemas/UrlAssessment"
+        modelVersion:
+          type: string
+        limitations:
+          type: array
+          items:
+            type: string
+        redactedPreview:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - inputType
+        - verdict
+        - riskScore
+        - indicators
+        - recommendations
+        - urls
+        - modelVersion
+        - limitations
+        - redactedPreview
+        - createdAt
+    ScanPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Scan"
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+      required: [items, page, limit, total]
+    DailyScanCount:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        count:
+          type: integer
+      required: [date, count]
+    DashboardStats:
+      type: object
+      properties:
+        total:
+          type: integer
+        highRisk:
+          type: integer
+        suspicious:
+          type: integer
+        lowerRisk:
+          type: integer
+        uncertain:
+          type: integer
+        trend:
+          type: array
+          items:
+            $ref: "#/components/schemas/DailyScanCount"
+        recent:
+          type: array
+          items:
+            $ref: "#/components/schemas/Scan"
+      required: [total, highRisk, suspicious, lowerRisk, uncertain, trend, recent]
+    FeedbackInput:
+      type: object
+      properties:
+        scanId:
+          type: string
+          minLength: 1
+        category:
+          type: string
+          enum: [correct, false-positive, false-negative, other]
+      required: [scanId, category]
 

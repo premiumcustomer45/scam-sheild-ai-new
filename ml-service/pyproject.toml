@@ -1,0 +1,24 @@
+[project]
+name = "scamshield-ml"
+version = "0.1.0"
+description = "Local FastAPI inference and reproducible phishing/spam model training"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.34,<1",
+  "pandas>=2.2,<3",
+  "numpy>=2.2,<3",
+  "scikit-learn>=1.6,<2",
+  "joblib>=1.4,<2",
+  "pydantic>=2.10,<3",
+]
+
+[dependency-groups]
+dev = [
+  "httpx>=0.28,<1",
+  "pytest>=8.3,<9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
