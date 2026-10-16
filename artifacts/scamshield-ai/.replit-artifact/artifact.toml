@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "ScamShield AI"
+description = "A responsible phishing and scam assessment platform for URLs and messages, with evidence-based risk explanations, scan history, and analytics."
+version = "1.0.0"
+id = "artifacts/scamshield-ai"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20313
+
+[services.development]
+run = "pnpm --filter @workspace/scamshield-ai run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/scamshield-ai", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/scamshield-ai/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20313"
+BASE_PATH = "/"
