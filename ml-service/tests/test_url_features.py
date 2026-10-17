@@ -53,8 +53,9 @@ def test_deceptive_hostname_does_not_treat_brand_text_as_registered_domain():
     assert features["suspicious_token_count"] >= 2
 
 
-def test_safe_preview_removes_user_info_query_and_fragment():
+def test_safe_preview_removes_user_info_path_query_and_fragment():
     preview = safe_url_preview("https://user:secret@example.com/reset?token=private#account")
-    assert preview == "https://example.com/reset"
+    assert preview == "https://example.com/…"
     assert "secret" not in preview
+    assert "reset" not in preview
     assert "token" not in preview

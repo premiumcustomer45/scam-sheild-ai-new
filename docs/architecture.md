@@ -5,7 +5,7 @@
 1. **React + Vite** serves the user interface and calls only the Express API.
 2. **Express** owns input validation, cookie-based sessions, rate limiting, scan persistence, access checks, and API responses.
 3. **FastAPI** loads the fitted scikit-learn pipelines at startup, extracts URL-only features, and returns model results with limitations.
-4. **PostgreSQL + Drizzle** stores accounts, scan metadata/results, and feedback. Message bodies are not stored; URL query strings and fragments are omitted from saved previews.
+4. **PostgreSQL + Drizzle** stores accounts, scan metadata/results, and feedback. Message bodies are not stored; saved URL previews omit paths, user info, query strings, and fragments.
 
 ```mermaid
 flowchart LR

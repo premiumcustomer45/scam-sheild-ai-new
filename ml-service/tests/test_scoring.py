@@ -53,7 +53,7 @@ def test_url_prediction_uses_model_output_and_explicit_limitations():
     assert result.riskScore == 42
     assert result.verdict == "suspicious"
     assert result.model_probability is None
-    assert result.urls[0].url == "https://example.com/a"
+    assert result.urls[0].url == "https://example.com/…"
     assert any("did not visit" in limitation for limitation in result.limitations)
 
 
@@ -85,7 +85,7 @@ def test_combined_scan_extracts_urls_without_visiting_them_and_marks_conflict():
     assert extract_urls(text) == ["https://example.com/login?token=secret"]
     result = predict_combined(text, text_bundle(0.5), url_bundle(0.05))
     assert result.verdict == "uncertain"
-    assert result.urls[0].url == "https://example.com/login"
+    assert result.urls[0].url == "https://example.com/…"
     assert any(item.code == "conflicting-evidence" for item in result.indicators)
 
 

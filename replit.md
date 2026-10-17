@@ -49,7 +49,7 @@ Users can assess URLs and messages, review evidence and limitations, and sign in
 
 ## User preferences
 
-Do not store raw message bodies or URL query strings in scan history.
+Do not store raw message bodies or original URL paths, user info, query strings, or fragments in scan history.
 
 ## Gotchas
 

@@ -126,8 +126,9 @@ def extract_url_features(value: str) -> dict[str, float]:
 
 
 def safe_url_preview(value: str) -> str:
-    """Return a display-only URL with user info, query, and fragment removed."""
+    """Return an origin-only preview; paths may contain private reset tokens."""
     parsed, hostname, port = parse_url(value)
     host = f"[{hostname}]" if ":" in hostname and not hostname.startswith("[") else hostname
     netloc = host if port is None else f"{host}:{port}"
-    return f"{parsed.scheme.lower()}://{netloc}{parsed.path}"
+    path_marker = "/…" if parsed.path not in {"", "/"} else ""
+    return f"{parsed.scheme.lower()}://{netloc}{path_marker}"

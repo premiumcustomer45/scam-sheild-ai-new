@@ -51,7 +51,7 @@ app.use((req, res, next) => {
   cors({ origin, credentials: true })(req, res, next);
 });
 app.use(express.json({ limit: "64kb" }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: "64kb" }));
 app.use(cookieParser());
 
 app.use("/api", router);
@@ -63,6 +63,23 @@ app.use(
     res: express.Response,
     _next: express.NextFunction,
   ) => {
+    const errorType =
+      typeof error === "object" &&
+      error !== null &&
+      "type" in error &&
+      typeof error.type === "string"
+        ? error.type
+        : null;
+    if (errorType === "entity.parse.failed") {
+      req.log.warn({ errorType }, "Rejected malformed request body");
+      res.status(400).json({ error: "Malformed request body." });
+      return;
+    }
+    if (errorType === "entity.too.large") {
+      req.log.warn({ errorType }, "Rejected oversized request body");
+      res.status(413).json({ error: "Request body is too large." });
+      return;
+    }
     req.log.error({ err: error }, "Unhandled API error");
     res.status(500).json({ error: "An unexpected server error occurred." });
   },
