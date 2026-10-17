@@ -18,6 +18,8 @@ flowchart LR
 
 Submitted URLs are parsed as strings only. No component performs DNS resolution, HTTP requests, redirects, or page rendering for a user-supplied URL.
 
+The URL inference layer applies an evidence guard: a model score above the high-risk threshold is reported as `uncertain` with a 50/100 midpoint score when no concrete structural warning indicator is present. This avoids presenting source-specific training patterns as decisive evidence on a generic URL.
+
 ## Scan flow
 
 1. The browser sends a URL or message to the versioned `/api` surface.
@@ -31,6 +33,7 @@ Submitted URLs are parsed as strings only. No component performs DNS resolution,
 
 - URL and text scores are never averaged and are not treated as statistically independent.
 - Any high-risk URL controls the combined verdict.
+- An uncertain URL result is preserved by the combined policy rather than silently discarded.
 - A spam-like text result accompanied only by lower-risk URL results is `uncertain`.
 - Other strong disagreement is `uncertain`; agreement follows the strongest relevant signal.
 - Each URL result remains visible as separate evidence.

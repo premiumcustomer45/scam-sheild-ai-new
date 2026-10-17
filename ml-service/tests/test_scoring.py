@@ -57,6 +57,22 @@ def test_url_prediction_uses_model_output_and_explicit_limitations():
     assert any("did not visit" in limitation for limitation in result.limitations)
 
 
+def test_high_url_score_without_a_specific_warning_is_uncertain():
+    result = predict_url("https://example.com", url_bundle(0.99))
+    assert result.verdict == "uncertain"
+    assert result.riskScore == 50
+    assert any(
+        item.code == "model-signal-needs-verification"
+        for item in result.indicators
+    )
+
+
+def test_high_url_score_with_a_specific_warning_remains_high_risk():
+    result = predict_url("https://user@example.com", url_bundle(0.99))
+    assert result.verdict == "high-risk"
+    assert any(item.code == "userinfo" for item in result.indicators)
+
+
 def test_text_prediction_is_described_as_spam_not_phishing():
     result = predict_text("Verify your account now.", text_bundle(0.9))
     assert result.verdict == "high-risk"
@@ -71,3 +87,14 @@ def test_combined_scan_extracts_urls_without_visiting_them_and_marks_conflict():
     assert result.verdict == "uncertain"
     assert result.urls[0].url == "https://example.com/login"
     assert any(item.code == "conflicting-evidence" for item in result.indicators)
+
+
+def test_combined_scan_does_not_drop_an_uncertain_url_signal():
+    text = "Please review https://example.com/account"
+    result = predict_combined(text, text_bundle(0.05), url_bundle(0.99))
+    assert result.verdict == "uncertain"
+    assert result.urls[0].verdict == "uncertain"
+    assert any(
+        item.code == "model-signal-needs-verification"
+        for item in result.indicators
+    )

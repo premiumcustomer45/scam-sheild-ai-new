@@ -6,7 +6,7 @@ No deployment has been performed or verified as part of this build. The followin
 
 | Service | Build/run | Required configuration |
 | --- | --- | --- |
-| React + Vite | `pnpm --filter @workspace/scamshield-ai run build` | Same-origin `/api` path |
+| React + Vite | `PORT=3000 BASE_PATH=/ pnpm --filter @workspace/scamshield-ai run build` | Same-origin `/api` path |
 | Express API | `pnpm --filter @workspace/api-server run build` then `pnpm --filter @workspace/api-server run start` | `DATABASE_URL`, `SESSION_SECRET`, `ML_SERVICE_URL`, `FRONTEND_URL`, `PORT` |
 | FastAPI ML | `uv sync --all-groups` then `uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT` from `ml-service/` | model artifacts, `MODEL_DIR`, `PORT` |
 

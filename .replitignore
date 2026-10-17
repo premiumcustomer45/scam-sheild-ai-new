@@ -9,4 +9,5 @@ ml-service/data/raw
 ml-service/data/processed
 ml-service/.venv
 ml-service/.pytest_cache
+ml-service/training/reports
 .pythonlibs

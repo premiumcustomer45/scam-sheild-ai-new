@@ -12,7 +12,7 @@ An educational phishing and scam assessment app that analyzes URL strings and me
 - `cd ml-service && uv run python training/train_url_model.py && uv run python training/train_text_model.py` — train both models
 - `cd ml-service && uv run pytest` — run ML tests
 - `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
+- `PORT=3000 BASE_PATH=/ pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL`, `SESSION_SECRET`; optional `FRONTEND_URL`, `ML_SERVICE_URL`

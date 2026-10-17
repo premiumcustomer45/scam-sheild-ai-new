@@ -123,11 +123,40 @@ def _score_url(url: str, bundle: dict[str, Any]) -> UrlAssessment:
     frame = pd.DataFrame([features], columns=metadata["feature_names"])
     score = float(model.predict_proba(frame)[0][list(model.classes_).index(1)])
     verdict = _classify(score, metadata)
+    indicators = _indicators_from_url(url, features)
+    has_specific_warning = any(
+        indicator.severity in {"warning", "high"} for indicator in indicators
+    )
+    if verdict == "high-risk" and not has_specific_warning:
+        # The UCI corpus has strong source-specific URL conventions. Do not
+        # present a high model score as decisive when no concrete URL warning
+        # sign supports it (for example, an ordinary short domain).
+        verdict = "uncertain"
+        risk_score = 50
+        indicators.append(
+            Indicator(
+                code="model-signal-needs-verification",
+                title="Strong model signal, no specific URL clue",
+                detail="The model matched an overall pattern from its training data, but found no distinct structural warning sign. Treat this as uncertain and verify the destination independently.",
+                severity="warning",
+            )
+        )
+    else:
+        risk_score = max(0, min(100, round(score * 100)))
+        if not indicators:
+            indicators.append(
+                Indicator(
+                    code="no-distinct-url-cue",
+                    title="No distinct URL warning sign found",
+                    detail="No individual structural clue stood out. A lower model signal does not establish that a destination is safe.",
+                    severity="info",
+                )
+            )
     return UrlAssessment(
         url=safe_url_preview(url),
         verdict=verdict,
-        riskScore=max(0, min(100, round(score * 100))),
-        indicators=_indicators_from_url(url, features),
+        riskScore=risk_score,
+        indicators=indicators,
     )
 
 
@@ -229,6 +258,7 @@ def predict_combined(text: str, text_bundle: dict[str, Any], url_bundle: dict[st
     # A high-risk URL is not diluted by the message text. Conflicting strong
     # message and URL signals are reported as uncertain instead of averaged.
     url_high = "high-risk" in url_result_verdicts
+    url_uncertain = "uncertain" in url_result_verdicts
     text_high = text_result.verdict == "high-risk"
     urls_all_lower = all(verdict == "lower-risk" for verdict in url_result_verdicts)
     text_signal = text_result.verdict in {"suspicious", "high-risk"}
@@ -237,6 +267,9 @@ def predict_combined(text: str, text_bundle: dict[str, Any], url_bundle: dict[st
     if url_high:
         verdict = "high-risk"
         score = max(assessment.riskScore for assessment in assessments)
+    elif url_uncertain:
+        verdict = "uncertain"
+        score = max(text_result.riskScore, max(item.riskScore for item in assessments))
     elif text_signal and urls_all_lower:
         verdict = "uncertain"
         score = max(text_result.riskScore, max(item.riskScore for item in assessments))

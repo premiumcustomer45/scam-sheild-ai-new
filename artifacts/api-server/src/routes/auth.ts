@@ -21,6 +21,13 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: "Too many sign-in attempts. Try again later." },
 });
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many account creation attempts. Try again later." },
+});
 
 function isUniqueViolation(error: unknown): boolean {
   return (
@@ -31,7 +38,7 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
-router.post("/auth/register", async (req, res): Promise<void> => {
+router.post("/auth/register", registerLimiter, async (req, res): Promise<void> => {
   const input = RegisterBody.safeParse(req.body);
   if (!input.success) {
     res.status(400).json({ error: "Enter a name, valid email, and password of at least 10 characters." });

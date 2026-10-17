@@ -28,6 +28,8 @@ Confusion matrices use label order `[non-phishing/ham, phishing/spam]`:
 
 The URL dataset includes page-derived attributes, but this model intentionally uses only its URL column to avoid training/live feature mismatch. Its approximate registrable-domain split is more conservative than a random row split, though the suffix approximation and dataset source still limit generalization. The SMS corpus is small and contains spam filtering labels, not phishing labels.
 
+An additional serving policy downgrades a high URL model score to `uncertain` when no concrete structural warning indicator is present. This guard is not part of the offline classifier metrics above.
+
 The reports in `training/reports/url_evaluation.json` and `text_evaluation.json` contain threshold selection, validation comparison, dataset counts, training configuration, and examples from text false positives/negatives. They are excluded from Git/deployment because the text examples may contain contact details. Regenerate them with the model artifacts after retraining.
 
 The combined policy is not evaluated as a classifier because no labeled combined-message dataset was used. Its conflict behavior is a documented heuristic.
