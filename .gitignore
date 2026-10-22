@@ -61,3 +61,6 @@ ml-service/training/reports/*
 
 # Vercel
 .vercel
+
+.vercel
+.env*

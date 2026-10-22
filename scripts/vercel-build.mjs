@@ -30,7 +30,7 @@ function pnpm(args, options = {}) {
 }
 
 function pushDatabaseSchema() {
-  if (!process.env.DATABASE_URL || process.env.SKIP_DB_PUSH) {
+  if (!(process.env.DATABASE_URL || process.env.POSTGRES_URL) || process.env.SKIP_DB_PUSH) {
     console.log("Skipping database schema push (DATABASE_URL not set).");
     return;
   }
