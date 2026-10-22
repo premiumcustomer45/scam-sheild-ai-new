@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { Link, Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
 import {
@@ -158,8 +158,50 @@ function QueryError({ retry, message = 'We could not load this information right
   return <div className="error-panel" role="alert" data-testid="status-api-error"><CircleAlert size={19} /><div><strong>Something did not load.</strong><p>{message}</p></div><button className="button button-outline button-small" onClick={retry} data-testid="button-retry">Try again</button></div>;
 }
 
+const verdictLabels: Record<Verdict, string> = {
+  'lower-risk': 'Low risk',
+  suspicious: 'Suspicious',
+  'high-risk': 'High risk',
+  uncertain: 'Uncertain',
+};
+
 function VerdictBadge({ verdict }: { verdict: Verdict }) {
-  return <span className={`verdict-badge verdict-${verdict}`} data-testid={`status-verdict-${verdict}`}><span className="verdict-dot" />{verdict.replace('-', ' ')}</span>;
+  return <span className={`verdict-badge verdict-${verdict}`} data-testid={`status-verdict-${verdict}`}><span className="verdict-dot" />{verdictLabels[verdict] ?? verdict}</span>;
+}
+
+function assessmentTitle(scan: Scan) {
+  if (scan.verdict === 'high-risk') return 'Dangerous. This looks like a scam.';
+  if (scan.verdict === 'suspicious') return 'Be careful. Some warning signs found.';
+  if (scan.verdict === 'uncertain') return 'The available evidence is inconclusive.';
+  return scan.riskScore <= 10 ? 'Looks safe. No warning signs found.' : 'No major warning signs found.';
+}
+
+function scanErrorMessage(error: unknown) {
+  const apiError = error as { status?: number; data?: { error?: string } | null } | null;
+  if (apiError?.status === 429) return 'Too many checks in a short time. Please wait a few minutes and try again.';
+  if (apiError?.status === 503) return 'The scanner is starting up. Please try again in a few seconds.';
+  return apiError?.data?.error || 'The check could not be completed. Please review the input and try again.';
+}
+
+const scanSteps = [
+  'Reading the input',
+  'Checking domain reputation',
+  'Looking for scam patterns',
+  'Running the ML model',
+  'Preparing your report',
+];
+
+function ScanProgress() {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setStep(n => Math.min(n + 1, scanSteps.length - 1)), 700);
+    return () => window.clearInterval(timer);
+  }, []);
+  return <ol className="scan-progress" aria-live="polite" data-testid="status-scan-progress">
+    {scanSteps.map((label, index) => <li key={label} className={index < step ? 'step-done' : index === step ? 'step-active' : ''}>
+      <span className="step-mark">{index < step ? <Check size={11} /> : <span className="step-dot" />}</span>{label}
+    </li>)}
+  </ol>;
 }
 
 function RiskMeter({ score }: { score: number }) {
@@ -258,12 +300,21 @@ function ScanPage() {
   const textScan = useCreateTextScan();
   const combinedScan = useCreateCombinedScan();
   const current = useGetCurrentUser();
+  const client = useQueryClient();
   const [, setLocation] = useLocation();
   const pending = urlScan.isPending || textScan.isPending || combinedScan.isPending;
   const error = urlScan.error || textScan.error || combinedScan.error;
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    const onSuccess = (scan: Scan) => setLocation(`/scans/${scan.id}`);
+    const onSuccess = (scan: Scan) => {
+      // Guest scans are not stored on the server, so the detail page reads this cached copy.
+      client.setQueryData(getGetScanQueryKey(scan.id), scan);
+      if (current.data?.user) {
+        client.invalidateQueries({ queryKey: getListScansQueryKey() });
+        client.invalidateQueries({ queryKey: getGetDashboardStatsQueryKey({ days: 30 }) });
+      }
+      setLocation(`/scans/${scan.id}`);
+    };
     if (kind === 'url') urlScan.mutate({ data: { url: url.trim() } }, { onSuccess });
     if (kind === 'text') textScan.mutate({ data: { text: text.trim() } }, { onSuccess });
     if (kind === 'combined') combinedScan.mutate({ data: { text: text.trim() } }, { onSuccess });
@@ -279,15 +330,16 @@ function ScanPage() {
     <div className="scan-workspace">
       <section className="scan-form-panel">
         <div className="mode-tabs" role="tablist" aria-label="What would you like to check?">
-          {modes.map(({ id, label, icon: Icon }) => <button key={id} role="tab" aria-selected={kind === id} className={`mode-tab ${kind === id ? 'mode-active' : ''}`} onClick={() => setKind(id)} data-testid={`button-mode-${id}`}><Icon size={17} /><span>{label}</span></button>)}
+          {modes.map(({ id, label, icon: Icon }) => <button key={id} role="tab" aria-selected={kind === id} className={`mode-tab ${kind === id ? 'mode-active' : ''}`} onClick={() => { setKind(id); urlScan.reset(); textScan.reset(); combinedScan.reset(); }} data-testid={`button-mode-${id}`}><Icon size={17} /><span>{label}</span></button>)}
         </div>
         <form onSubmit={handleSubmit}>
-          {kind === 'url' ? <div className="input-block"><label htmlFor="scan-url">Suspicious link</label><p>We assess the address itself. The destination will not be opened.</p><div className="url-input-wrap"><Globe2 size={16} /><input id="scan-url" type="url" maxLength={2048} required value={url} onChange={e => setUrl(e.target.value)} placeholder="https://example.com/verify" data-testid="input-scan-url" /></div></div> : <div className="input-block"><label htmlFor="scan-text">{kind === 'combined' ? 'Message and any links inside it' : 'Suspicious message'}</label><p>{kind === 'combined' ? 'Embedded URLs are assessed as part of the message check.' : 'Paste the message as received, including sender wording if useful.'}</p><textarea id="scan-text" value={text} required maxLength={20000} onChange={e => setText(e.target.value)} placeholder="Paste the message here. Example input: “Your parcel is held. Confirm your details at [link] within 24 hours.”" data-testid="input-scan-text" /><div className="textarea-meta"><span>Input only — this is not an assessment example.</span><span>{text.length.toLocaleString()} / 20,000</span></div></div>}
+          {kind === 'url' ? <div className="input-block"><label htmlFor="scan-url">Suspicious link</label><p>We assess the address itself. The destination will not be opened.</p><div className="url-input-wrap"><Globe2 size={16} /><input id="scan-url" type="text" inputMode="url" autoComplete="off" spellCheck={false} maxLength={2048} required value={url} onChange={e => setUrl(e.target.value)} placeholder="https://example.com/verify" data-testid="input-scan-url" /></div></div> : <div className="input-block"><label htmlFor="scan-text">{kind === 'combined' ? 'Message and any links inside it' : 'Suspicious message'}</label><p>{kind === 'combined' ? 'Embedded URLs are assessed as part of the message check.' : 'Paste the message as received, including sender wording if useful.'}</p><textarea id="scan-text" value={text} required maxLength={20000} onChange={e => setText(e.target.value)} placeholder="Paste the message here. Example input: “Your parcel is held. Confirm your details at [link] within 24 hours.”" data-testid="input-scan-text" /><div className="textarea-meta"><span>Input only — this is not an assessment example.</span><span>{text.length.toLocaleString()} / 20,000</span></div></div>}
           <div className="privacy-line"><LockKeyhole size={14} /><span>Your submitted content is handled according to the account and privacy policy.</span></div>
           <button className="button button-green scan-submit" type="submit" disabled={pending || (kind === 'url' ? !url.trim() : !text.trim())} data-testid="button-submit-scan">
             {pending ? <><span className="button-pulse" /> Reviewing signals…</> : <><Search size={16} /> Review this {kind === 'url' ? 'link' : kind === 'text' ? 'message' : 'message and links'} <ArrowRight size={15} /></>}
           </button>
-          {error && <div className="form-error" role="alert" data-testid="status-scan-error"><CircleAlert size={16} /> The check could not be completed. Please review the input and try again.</div>}
+          {pending && <ScanProgress />}
+          {error && !pending && <div className="form-error" role="alert" data-testid="status-scan-error"><CircleAlert size={16} /> {scanErrorMessage(error)}</div>}
         </form>
       </section>
       <aside className="scan-side">
@@ -326,7 +378,8 @@ function HistoryPage() {
 function ScanDetail() {
   const params = useParams<{ id: string }>();
   const id = params.id || '';
-  const scanQuery = useGetScan(id, { query: { queryKey: getGetScanQueryKey(id), enabled: Boolean(id) } });
+  // Saved scans never change, and guest scans only exist in this cache, so never refetch.
+  const scanQuery = useGetScan(id, { query: { queryKey: getGetScanQueryKey(id), enabled: Boolean(id), staleTime: Infinity, retry: false } });
   const current = useGetCurrentUser();
   const feedback = useCreateFeedback();
   const deleteScan = useDeleteScan();
@@ -343,28 +396,32 @@ function ScanDetail() {
   };
   const sendFeedback = (category: 'correct' | 'false-positive' | 'false-negative' | 'other') => feedback.mutate({ data: { scanId: id, category } }, { onSuccess: () => setFeedbackSent(true) });
   if (scanQuery.isLoading) return <LoadingBlock label="Loading scan details" />;
-  if (scanQuery.isError) return <div className="page-wrap"><Link href="/history" className="back-link" data-testid="link-detail-back"><ArrowLeft size={15} /> Back to history</Link><QueryError retry={() => scanQuery.refetch()} message="This scan could not be found or is no longer available." /></div>;
   const scan = scanQuery.data;
-  if (!scan) return null;
+  const signedIn = Boolean(current.data?.user);
+  if (!scan) {
+    if (!scanQuery.isError) return null;
+    return <div className="page-wrap"><Link href={signedIn ? '/history' : '/scan'} className="back-link" data-testid="link-detail-back"><ArrowLeft size={15} /> {signedIn ? 'Back to history' : 'New check'}</Link><QueryError retry={() => scanQuery.refetch()} message={signedIn ? 'This scan could not be found or is no longer available.' : 'Checks made without signing in are not saved. Run the check again, or sign in to keep a history.'} /></div>;
+  }
   return <div className="page-wrap detail-page">
-    <Link href="/history" className="back-link" data-testid="link-detail-back"><ArrowLeft size={15} /> Back to history</Link>
+    <Link href={signedIn ? '/history' : '/scan'} className="back-link" data-testid="link-detail-back"><ArrowLeft size={15} /> {signedIn ? 'Back to history' : 'Check something else'}</Link>
+    {!signedIn && !current.isLoading && <div className="inline-notice"><LockKeyhole size={16} /><span>This result is not saved. Sign in to keep a history of your checks.</span><Link href="/login" data-testid="link-detail-sign-in">Sign in</Link></div>}
     <PageHeading eyebrow={`${scan.inputType.toUpperCase()} REVIEW · ${formatDate(scan.createdAt, true)}`} title="Assessment details" description="Review the recorded signals and their limitations before deciding what to do next." action={current.data?.user ? <button className="button button-outline button-small button-delete" onClick={onDelete} disabled={deleteScan.isPending} data-testid="button-delete-scan"><Trash2 size={15} /> {deleteScan.isPending ? 'Deleting…' : 'Delete check'}</button> : undefined} />
     <section className={`assessment-hero verdict-band-${scan.verdict}`}>
       <div className="assessment-label"><span className="section-overline">ASSESSMENT</span><VerdictBadge verdict={scan.verdict} /></div>
-      <div className="assessment-main"><div><span className="assessment-title">{scan.verdict === 'lower-risk' ? 'Fewer concerning signals found.' : scan.verdict === 'high-risk' ? 'Several serious warning signs.' : scan.verdict === 'suspicious' ? 'Some signals deserve attention.' : 'The available evidence is inconclusive.'}</span><p>This is an automated assessment, not a guarantee or a substitute for trusted verification.</p></div><div className="assessment-score"><b>{scan.riskScore}</b><span>risk score / 100</span></div></div>
+      <div className="assessment-main"><div><span className="assessment-title">{assessmentTitle(scan)}</span><p>This is an automated assessment, not a guarantee or a substitute for trusted verification.</p></div><div className="assessment-score"><b>{scan.riskScore}</b><span>risk score / 100</span></div></div>
       <RiskMeter score={scan.riskScore} />
     </section>
     {scan.redactedPreview && <section className="panel preview-panel"><div className="section-overline">REDACTED INPUT PREVIEW</div><p data-testid="text-scan-preview">{scan.redactedPreview}</p></section>}
     <div className="detail-grid">
-      <section className="panel indicator-panel"><div className="panel-heading"><div><span className="section-overline">EVIDENCE</span><h2>Signals found</h2></div><span className="small-pill">{scan.indicators.length} indicators</span></div>
-        {scan.indicators.length ? <div className="indicator-list">{scan.indicators.map((indicator, index) => <article className={`indicator indicator-${indicator.severity}`} key={`${indicator.code}-${index}`} data-testid={`card-indicator-${indicator.code}-${index}`}><span className="indicator-symbol">{indicator.severity === 'high' ? <ShieldAlert size={17} /> : indicator.severity === 'warning' ? <TriangleAlert size={17} /> : <Activity size={17} />}</span><div><div className="indicator-heading"><strong>{indicator.title}</strong><span>{indicator.severity}</span></div><p>{indicator.detail}</p></div></article>)}</div> : <EmptyInline title="No indicators returned" copy="No specific signals were included in this assessment." />}
+      <section className="panel indicator-panel"><div className="panel-heading"><div><span className="section-overline">EVIDENCE</span><h2>Signals found</h2></div><span className="small-pill">{scan.indicators.length} {scan.indicators.length === 1 ? 'signal' : 'signals'}</span></div>
+        {scan.indicators.length ? <div className="indicator-list">{scan.indicators.map((indicator, index) => <article className={`indicator indicator-${indicator.severity}`} key={`${indicator.code}-${index}`} data-testid={`card-indicator-${indicator.code}-${index}`}><span className="indicator-symbol">{indicator.severity === 'high' ? <ShieldAlert size={17} /> : indicator.severity === 'warning' ? <TriangleAlert size={17} /> : indicator.severity === 'safe' ? <ShieldCheck size={17} /> : <Activity size={17} />}</span><div><div className="indicator-heading"><strong>{indicator.title}</strong><span>{indicator.severity === 'safe' ? 'good sign' : indicator.severity}</span></div><p>{indicator.detail}</p></div></article>)}</div> : <EmptyInline title="No indicators returned" copy="No specific signals were included in this assessment." />}
       </section>
       <aside className="detail-side">
         <section className="panel recommendations-panel"><div className="panel-heading"><div><span className="section-overline">NEXT STEPS</span><h2>Recommendations</h2></div></div>
           {scan.recommendations.length ? <ul className="recommendation-list">{scan.recommendations.map((item, index) => <li key={index} data-testid={`text-recommendation-${index}`}><span><Check size={14} /></span>{item}</li>)}</ul> : <EmptyInline title="No recommendations" copy="No next steps were provided for this scan." />}
         </section>
         {scan.urls.length > 0 && <section className="panel url-assessments"><div className="panel-heading"><div><span className="section-overline">LINKS IN THIS INPUT</span><h2>URL assessments</h2></div></div>
-          {scan.urls.map((item, index) => <div className="url-assessment" key={`${item.url}-${index}`} data-testid={`card-url-assessment-${index}`}><div className="url-line"><Globe2 size={15} /><span>{item.url}</span></div><div className="url-assessment-meta"><VerdictBadge verdict={item.verdict} /><span>Risk {item.riskScore}/100</span></div>{item.indicators.map((indicator, n) => <p className="url-indicator" key={`${indicator.code}-${n}`}>{indicator.title}: {indicator.detail}</p>)}</div>)}
+          {scan.urls.map((item, index) => <div className="url-assessment" key={`${item.url}-${index}`} data-testid={`card-url-assessment-${index}`}><div className="url-line"><Globe2 size={15} /><span>{item.url}</span></div><div className="url-assessment-meta"><VerdictBadge verdict={item.verdict} /><span>Risk {item.riskScore}/100</span></div>{item.indicators.map((indicator, n) => <p className={`url-indicator url-indicator-${indicator.severity}`} key={`${indicator.code}-${n}`}><b>{indicator.title}:</b> {indicator.detail}</p>)}</div>)}
         </section>}
       </aside>
     </div>

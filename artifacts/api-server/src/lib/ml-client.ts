@@ -35,9 +35,15 @@ export class MlServiceError extends Error {
   }
 }
 
+// A serverless ML service can take several seconds to cold start, so the
+// default timeout leaves room for that; override with ML_SERVICE_TIMEOUT_MS.
+const timeoutMs = Number(process.env.ML_SERVICE_TIMEOUT_MS) || 25_000;
+const serviceToken = process.env.ML_SERVICE_TOKEN;
+
 const client = axios.create({
   baseURL: process.env.ML_SERVICE_URL ?? "http://127.0.0.1:8000",
-  timeout: 10_000,
+  timeout: timeoutMs,
+  headers: serviceToken ? { "x-ml-service-token": serviceToken } : undefined,
   maxContentLength: 64 * 1024,
   maxBodyLength: 64 * 1024,
 });
@@ -65,7 +71,7 @@ export async function requestPrediction(
 
 export async function checkMlReadiness(): Promise<boolean> {
   try {
-    await client.get("/ready", { timeout: 1500 });
+    await client.get("/ready", { timeout: 10_000 });
     return true;
   } catch {
     return false;

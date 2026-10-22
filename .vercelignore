@@ -1,0 +1,4 @@
+# The ML service is deployed as its own Vercel project (root: ml-service).
+ml-service
+.local
+.pythonlibs

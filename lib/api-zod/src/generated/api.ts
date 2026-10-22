@@ -134,7 +134,7 @@ export const CreateUrlScanResponse = zod.object({
   "code": zod.string(),
   "title": zod.string(),
   "detail": zod.string(),
-  "severity": zod.enum(['info', 'warning', 'high'])
+  "severity": zod.enum(['safe', 'info', 'warning', 'high'])
 })),
   "recommendations": zod.array(zod.string()),
   "urls": zod.array(zod.object({
@@ -145,7 +145,7 @@ export const CreateUrlScanResponse = zod.object({
   "code": zod.string(),
   "title": zod.string(),
   "detail": zod.string(),
-  "severity": zod.enum(['info', 'warning', 'high'])
+  "severity": zod.enum(['safe', 'info', 'warning', 'high'])
 }))
 })),
   "modelVersion": zod.string(),
@@ -183,7 +183,7 @@ export const CreateTextScanResponse = zod.object({
   "code": zod.string(),
   "title": zod.string(),
   "detail": zod.string(),
-  "severity": zod.enum(['info', 'warning', 'high'])
+  "severity": zod.enum(['safe', 'info', 'warning', 'high'])
 })),
   "recommendations": zod.array(zod.string()),
   "urls": zod.array(zod.object({
@@ -194,7 +194,7 @@ export const CreateTextScanResponse = zod.object({
   "code": zod.string(),
   "title": zod.string(),
   "detail": zod.string(),
-  "severity": zod.enum(['info', 'warning', 'high'])
+  "severity": zod.enum(['safe', 'info', 'warning', 'high'])
 }))
 })),
   "modelVersion": zod.string(),
@@ -232,7 +232,7 @@ export const CreateCombinedScanResponse = zod.object({
   "code": zod.string(),
   "title": zod.string(),
   "detail": zod.string(),
-  "severity": zod.enum(['info', 'warning', 'high'])
+  "severity": zod.enum(['safe', 'info', 'warning', 'high'])
 })),
   "recommendations": zod.array(zod.string()),
   "urls": zod.array(zod.object({
@@ -243,7 +243,7 @@ export const CreateCombinedScanResponse = zod.object({
   "code": zod.string(),
   "title": zod.string(),
   "detail": zod.string(),
-  "severity": zod.enum(['info', 'warning', 'high'])
+  "severity": zod.enum(['safe', 'info', 'warning', 'high'])
 }))
 })),
   "modelVersion": zod.string(),
@@ -286,7 +286,7 @@ export const ListScansResponse = zod.object({
   "code": zod.string(),
   "title": zod.string(),
   "detail": zod.string(),
-  "severity": zod.enum(['info', 'warning', 'high'])
+  "severity": zod.enum(['safe', 'info', 'warning', 'high'])
 })),
   "recommendations": zod.array(zod.string()),
   "urls": zod.array(zod.object({
@@ -297,7 +297,7 @@ export const ListScansResponse = zod.object({
   "code": zod.string(),
   "title": zod.string(),
   "detail": zod.string(),
-  "severity": zod.enum(['info', 'warning', 'high'])
+  "severity": zod.enum(['safe', 'info', 'warning', 'high'])
 }))
 })),
   "modelVersion": zod.string(),
@@ -335,7 +335,7 @@ export const GetScanResponse = zod.object({
   "code": zod.string(),
   "title": zod.string(),
   "detail": zod.string(),
-  "severity": zod.enum(['info', 'warning', 'high'])
+  "severity": zod.enum(['safe', 'info', 'warning', 'high'])
 })),
   "recommendations": zod.array(zod.string()),
   "urls": zod.array(zod.object({
@@ -346,7 +346,7 @@ export const GetScanResponse = zod.object({
   "code": zod.string(),
   "title": zod.string(),
   "detail": zod.string(),
-  "severity": zod.enum(['info', 'warning', 'high'])
+  "severity": zod.enum(['safe', 'info', 'warning', 'high'])
 }))
 })),
   "modelVersion": zod.string(),
@@ -408,7 +408,7 @@ export const GetDashboardStatsResponse = zod.object({
   "code": zod.string(),
   "title": zod.string(),
   "detail": zod.string(),
-  "severity": zod.enum(['info', 'warning', 'high'])
+  "severity": zod.enum(['safe', 'info', 'warning', 'high'])
 })),
   "recommendations": zod.array(zod.string()),
   "urls": zod.array(zod.object({
@@ -419,7 +419,7 @@ export const GetDashboardStatsResponse = zod.object({
   "code": zod.string(),
   "title": zod.string(),
   "detail": zod.string(),
-  "severity": zod.enum(['info', 'warning', 'high'])
+  "severity": zod.enum(['safe', 'info', 'warning', 'high'])
 }))
 })),
   "modelVersion": zod.string(),

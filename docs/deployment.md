@@ -1,6 +1,40 @@
 # Deployment
 
-No deployment has been performed or verified as part of this build. The following describes the configuration required for deployment; verify current hosting requirements before choosing providers.
+## Vercel (recommended)
+
+The repository deploys as **two Vercel projects** from the same Git repo:
+
+| Project | Root Directory | What it serves |
+| --- | --- | --- |
+| `scamshield-ml` | `ml-service` | FastAPI model inference (Python serverless function) |
+| `scamshield` | `.` (repo root) | React frontend + Express API at `/api` (Node.js function) |
+
+The root `vercel.json` runs `scripts/vercel-build.mjs`, which writes Vercel's Build Output API layout: the Vite build as static files and the Express app bundled into one function at `/api`. Frontend and API share an origin, so the session cookie needs no CORS setup.
+
+### 1. Deploy the ML service
+
+1. Vercel → **Add New Project** → import the repo → set **Root Directory** to `ml-service`.
+2. Environment variable: `ML_SERVICE_TOKEN` = a long random string.
+3. Deploy, then open `https://<ml-project>.vercel.app/health` — it should return `{"status":"ok"}`.
+
+### 2. Create the database
+
+In the main project's **Storage** tab, add a Neon (Postgres) database and connect it to the project. This sets `DATABASE_URL`. Any hosted PostgreSQL URL works too.
+
+### 3. Deploy the web app + API
+
+1. **Add New Project** → same repo → **Root Directory** `.` (leave framework as "Other"; `vercel.json` sets the commands).
+2. Environment variables:
+   - `DATABASE_URL` — set by the Neon integration, or paste your own
+   - `SESSION_SECRET` — random string, at least 32 characters
+   - `ML_SERVICE_URL` — `https://<ml-project>.vercel.app`
+   - `ML_SERVICE_TOKEN` — same value as on the ML project
+3. Deploy. The build pushes the Drizzle schema automatically when `DATABASE_URL` is available (set `SKIP_DB_PUSH=1` to disable). If the log shows a push warning, run it once locally: `DATABASE_URL=... pnpm --filter @workspace/db run push`.
+4. Check `https://<app>.vercel.app/api/health` and `/api/ready`, then register an account and run a scan.
+
+The first scan after a period of inactivity can take a few seconds while the ML function cold-starts; the API waits up to `ML_SERVICE_TIMEOUT_MS` (default 25 s).
+
+## Other hosts
 
 ## Services and variables
 

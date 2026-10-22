@@ -58,3 +58,6 @@ ml-service/data/raw/*
 ml-service/data/processed/*
 ml-service/training/reports/*
 .pythonlibs/
+
+# Vercel
+.vercel

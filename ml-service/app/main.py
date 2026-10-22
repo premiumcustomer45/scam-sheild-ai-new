@@ -6,6 +6,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+import hmac
+import threading
+
 import joblib
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -15,7 +18,12 @@ from app.services.scoring import predict_combined, predict_text, predict_url
 
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 logger = logging.getLogger("scamshield.ml")
-MODEL_DIR = Path(os.environ.get("MODEL_DIR", Path(__file__).resolve().parents[1] / "models"))
+MODEL_DIR = Path(os.environ.get("MODEL_DIR") or Path(__file__).resolve().parents[1] / "models")
+# Optional shared secret. When set, every request except /health must carry it
+# in the x-ml-service-token header, so a publicly reachable deployment (such as
+# Vercel) only answers the Express API.
+SERVICE_TOKEN = os.environ.get("ML_SERVICE_TOKEN", "")
+_model_lock = threading.Lock()
 
 
 def _load_bundle(path: Path, expected_type: str) -> dict[str, Any]:
@@ -35,21 +43,34 @@ def _load_bundle(path: Path, expected_type: str) -> dict[str, Any]:
     return bundle
 
 
+def _ensure_models(app: FastAPI) -> None:
+    # Serverless runtimes may skip ASGI lifespan events, so endpoints also call
+    # this to load the models on first use.
+    if hasattr(app.state, "url_bundle") and hasattr(app.state, "text_bundle"):
+        return
+    with _model_lock:
+        if hasattr(app.state, "url_bundle") and hasattr(app.state, "text_bundle"):
+            return
+        try:
+            url_bundle = _load_bundle(MODEL_DIR / "url_model.joblib", "url")
+            text_bundle = _load_bundle(MODEL_DIR / "text_model.joblib", "text")
+        except Exception:
+            logger.exception("ML service model initialization failed")
+            raise
+        app.state.url_bundle = url_bundle
+        app.state.text_bundle = text_bundle
+        logger.info(
+            "ML service ready",
+            extra={
+                "url_model": url_bundle["metadata"]["model_version"],
+                "text_model": text_bundle["metadata"]["model_version"],
+            },
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    try:
-        app.state.url_bundle = _load_bundle(MODEL_DIR / "url_model.joblib", "url")
-        app.state.text_bundle = _load_bundle(MODEL_DIR / "text_model.joblib", "text")
-    except Exception:
-        logger.exception("ML service model initialization failed")
-        raise
-    logger.info(
-        "ML service ready",
-        extra={
-            "url_model": app.state.url_bundle["metadata"]["model_version"],
-            "text_model": app.state.text_bundle["metadata"]["model_version"],
-        },
-    )
+    _ensure_models(app)
     yield
 
 
@@ -59,6 +80,15 @@ app = FastAPI(
     description="Local model inference. Submitted URLs are parsed only and are never fetched.",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def require_service_token(request: Request, call_next):
+    if SERVICE_TOKEN and request.url.path != "/health":
+        supplied = request.headers.get("x-ml-service-token", "")
+        if not hmac.compare_digest(supplied.encode(), SERVICE_TOKEN.encode()):
+            return JSONResponse(status_code=401, content={"detail": "Unauthorized."})
+    return await call_next(request)
 
 
 @app.middleware("http")
@@ -76,6 +106,10 @@ async def health():
 
 @app.get("/ready")
 async def readiness(request: Request):
+    try:
+        _ensure_models(request.app)
+    except Exception:
+        raise HTTPException(status_code=503, detail="Models are not loaded.")
     if not hasattr(request.app.state, "url_bundle") or not hasattr(
         request.app.state, "text_bundle"
     ):
@@ -85,6 +119,7 @@ async def readiness(request: Request):
 
 @app.post("/predict/url", response_model=Prediction)
 async def url_prediction(payload: UrlInput, request: Request):
+    _ensure_models(request.app)
     try:
         return predict_url(payload.url, request.app.state.url_bundle)
     except ValueError as exc:
@@ -96,6 +131,7 @@ async def url_prediction(payload: UrlInput, request: Request):
 
 @app.post("/predict/text", response_model=Prediction)
 async def text_prediction(payload: TextInput, request: Request):
+    _ensure_models(request.app)
     try:
         return predict_text(payload.text, request.app.state.text_bundle)
     except Exception as exc:
@@ -105,6 +141,7 @@ async def text_prediction(payload: TextInput, request: Request):
 
 @app.post("/predict/combined", response_model=Prediction)
 async def combined_prediction(payload: TextInput, request: Request):
+    _ensure_models(request.app)
     try:
         return predict_combined(
             payload.text,

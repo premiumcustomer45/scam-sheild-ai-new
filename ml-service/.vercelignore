@@ -1,0 +1,8 @@
+# Only the inference API and model files are needed at runtime.
+data
+training
+tests
+.venv
+.pytest_cache
+__pycache__
+**/__pycache__

@@ -53,7 +53,9 @@ def parse_url(value: str):
     raw = value.strip()
     if not raw:
         raise ValueError("Enter a URL to scan.")
-    candidate = raw if "://" in raw else f"http://{raw}"
+    # Bare domains ("chatgpt.com") are what people type into a browser, which
+    # opens them over HTTPS, so do not penalize them as plain HTTP.
+    candidate = raw if "://" in raw else f"https://{raw}"
     try:
         parsed = urlsplit(candidate)
         # Accessing .port validates invalid and out-of-range ports.

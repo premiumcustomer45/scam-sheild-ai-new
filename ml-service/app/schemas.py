@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 Verdict = Literal["lower-risk", "suspicious", "high-risk", "uncertain"]
-Severity = Literal["info", "warning", "high"]
+Severity = Literal["safe", "info", "warning", "high"]
 
 
 class UrlInput(BaseModel):

@@ -842,3 +842,20 @@ a { color: inherit; text-decoration: none; }
     inset: -1px;
   }
 }
+
+/* Positive evidence and scan progress */
+.indicator-safe .indicator-symbol { color: hsl(155 54% 29%); background: hsl(155 41% 91%); }
+.indicator-safe .indicator-heading span { color: hsl(155 54% 32%); }
+.url-indicator-safe b { color: hsl(155 54% 29%); }
+.url-indicator-high b { color: hsl(3 60% 43%); }
+.url-indicator-warning b { color: hsl(28 75% 38%); }
+.scan-progress { list-style: none; display: grid; gap: 9px; margin: 16px 0 0; padding: 14px 16px; border: 1px solid hsl(39 20% 88%); border-radius: 10px; background: hsl(40 33% 98%); font-size: 11px; color: hsl(222 12% 60%); animation: enter-rise .25s ease; }
+.scan-progress li { display: flex; align-items: center; gap: 9px; transition: color .2s ease; }
+.scan-progress .step-mark { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 50%; background: hsl(39 20% 92%); flex: 0 0 auto; }
+.scan-progress .step-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .5; }
+.scan-progress .step-active { color: hsl(222 25% 22%); font-weight: 600; }
+.scan-progress .step-active .step-mark { background: hsl(155 41% 88%); color: hsl(155 54% 32%); }
+.scan-progress .step-active .step-dot { opacity: 1; animation: pulse 1s ease infinite; }
+.scan-progress .step-done { color: hsl(155 40% 30%); }
+.scan-progress .step-done .step-mark { background: hsl(155 54% 38%); color: white; }
+@media (prefers-reduced-motion: reduce) { .scan-progress, .scan-progress .step-active .step-dot { animation: none; } }

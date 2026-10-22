@@ -10,6 +10,7 @@ export type IndicatorSeverity = typeof IndicatorSeverity[keyof typeof IndicatorS
 
 
 export const IndicatorSeverity = {
+  safe: 'safe',
   info: 'info',
   warning: 'warning',
   high: 'high',
